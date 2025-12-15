@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fruit Ninja Clone</title>
+  <style>
+    body {
+      margin: 0;
+      background: #222;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      cursor: none;
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-size: 20px;
+    }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 30px;
+      display: none;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+<div id="score">Score: 0</div>
+<div id="gameOver">💥 Bomb Hit!<br>Click to Restart</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// Sounds
+const sliceSound = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
+const bombSound = new Audio('https://actions.google.com/sounds/v1/explosions/explosion.ogg');
+
+let objects = [];
+let score = 0;
+let gameRunning = true;
+
+let trail = [];
+
+class GameObject {
+  constructor(type) {
+    this.type = type; // fruit or bomb
+    this.x = Math.random() * canvas.width;
+    this.y = canvas.height + 30;
+    this.radius = type === 'bomb' ? 25 : 20;
+    this.speedY = Math.random() * -9 - 12;
+    this.gravity = 0.35;
+    this.color = type === 'bomb' ? 'red' : ['orange', 'green', 'yellow', 'pink'][Math.floor(Math.random() * 4)];
+  }
+
+  update() {
+    this.speedY += this.gravity;
+    this.y += this.speedY;
+  }
+
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+  }
+}
+
+function spawnObject() {
+  if (!gameRunning) return;
+  const isBomb = Math.random() < 0.2; // 20% bombs
+  objects.push(new GameObject(isBomb ? 'bomb' : 'fruit'));
+}
+
+setInterval(spawnObject, 700);
+
+let mouse = { x: 0, y: 0 };
+
+function sliceAt(x, y) {
+  trail.push({ x, y, life: 10 });
+
+  objects.forEach((obj, index) => {
+    const dx = obj.x - x;
+    const dy = obj.y - y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < obj.radius) {
+      if (obj.type === 'bomb') {
+        bombSound.play();
+        gameRunning = false;
+        document.getElementById('gameOver').style.display = 'block';
+      } else {
+        sliceSound.play();
+        objects.splice(index, 1);
+        score++;
+        document.getElementById('score').innerText = 'Score: ' + score;
+      }
+    }
+  });
+}
+
+canvas.addEventListener('mousemove', e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  sliceAt(mouse.x, mouse.y);
+});
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  mouse.x = touch.clientX;
+  mouse.y = touch.clientY;
+  sliceAt(mouse.x, mouse.y);
+}, { passive: false });
+
+  objects.forEach((obj, index) => {
+    const dx = obj.x - mouse.x;
+    const dy = obj.y - mouse.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < obj.radius) {
+      if (obj.type === 'bomb') {
+        bombSound.play();
+        gameRunning = false;
+        document.getElementById('gameOver').style.display = 'block';
+      } else {
+        sliceSound.play();
+        objects.splice(index, 1);
+        score++;
+        document.getElementById('score').innerText = 'Score: ' + score;
+      }
+    }
+  });
+});
+
+canvas.addEventListener('click', () => {
+  if (!gameRunning) {
+    objects = [];
+    score = 0;
+    gameRunning = true;
+    document.getElementById('gameOver').style.display = 'none';
+    document.getElementById('score').innerText = 'Score: 0';
+  }
+});
+
+function drawTrail() {
+  for (let i = 0; i < trail.length; i++) {
+    ctx.beginPath();
+    ctx.arc(trail[i].x, trail[i].y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0,255,255,${trail[i].life / 10})`;
+    ctx.fill();
+    trail[i].life--;
+  }
+  trail = trail.filter(t => t.life > 0);
+}
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawTrail();
+
+  objects.forEach((obj, index) => {
+    obj.update();
+    obj.draw();
+
+    if (obj.y > canvas.height + 50 && obj.type === 'fruit') {
+      gameRunning = false;
+      document.getElementById('gameOver').style.display = 'block';
+    }
+  });
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+
+</body>
+</html>
